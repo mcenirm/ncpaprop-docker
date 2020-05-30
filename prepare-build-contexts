@@ -1,0 +1,27 @@
+#!/bin/bash
+set -eu
+
+find downloads -type f -print | while read -r f
+do
+  name=$(basename -- "$f")
+  label=$(basename -- "$(dirname -- "$f")")
+
+  context=build-$label
+  linkname=$name
+
+  for ext in .tar.gz .tgz .tar.bz2 .zip
+  do
+    if [[ "$name" == *$ext ]]
+    then
+      linkname=$label$ext
+      break
+    fi
+  done
+
+  mkdir -p -- "$context"
+  [ -f "$context/.gitignore" ] || echo > "$context/.gitignore"
+  previous=$(cat "$context/.gitignore")
+  printf '%s\n%s' "$linkname" "$previous" | sort -u > "$context/.gitignore"
+
+  ln -fv -- "$f" "$context/$linkname"
+done
