@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+import argparse
+import re
+import sys
+from pathlib import Path
+
+import docker
+
+if __name__ == "__main__":
+    pattern_image_prefix_from_directory_name = re.compile(
+        r"(?:docker-)?(?P<name>.*)(?:-docker)$"
+    )
+    pattern_image_name_from_image_dir_name = re.compile(
+        r"(?:image-?\d*-?)?(?P<name>[^,/]+)(?P<rest>.*)"
+    )
+    pattern_image_tag_from_rest = re.compile(r",(?P<tag>[^,/]+)(?P<rest>.*)")
+
+    argv = sys.argv
+    program_name = argv[0]
+    argument_list = argv[1:]
+    parent = Path.cwd()
+    default_image_prefix = re.match(
+        pattern_image_prefix_from_directory_name, parent.name,
+    ).group(1)
+    default_image_prefix += "-"
+    parser = argparse.ArgumentParser(
+        prog=program_name, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--image-prefix", help="Prefix for image names", default=default_image_prefix,
+    )
+    args = parser.parse_args(argument_list)
+    image_prefix = args.image_prefix
+    image_dir_list = [_ for _ in parent.glob("image*") if _.is_dir()]
+
+    client = docker.from_env()
+
+    for image_dir in sorted(image_dir_list):
+        image_dir_name = Path(image_dir).name
+        name = None
+        tag_list = []
+        rest = image_dir_name
+        name_matches = pattern_image_name_from_image_dir_name.match(image_dir_name)
+        if name_matches:
+            name = name_matches.group("name")
+            rest = name_matches.group("rest")
+        tag_matches = True
+        while tag_matches:
+            tag_matches = pattern_image_tag_from_rest.match(rest)
+            if tag_matches:
+                tag = tag_matches.group("tag")
+                rest = tag_matches.group("rest")
+                tag_list.append(tag)
+        if not tag_list:
+            tag_list = ["latest"]
+        name = f"{image_prefix}{name}"
+        build_args = dict(ncpaprop_image_prefix=image_prefix)
+        image, logs = client.images.build(
+            path=str(image_dir), tag=f"{name}:{tag_list[0]}", buildargs=build_args
+        )
+        for log in logs:
+            if "stream" in log:
+                print(log["stream"], end="")
+            else:
+                print(log)
+        print(image.tags)
+        for tag in tag_list[1:]:
+            image.tag(tag)
+    sys.exit(0)
