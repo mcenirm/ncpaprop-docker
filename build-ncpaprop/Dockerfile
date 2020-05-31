@@ -22,3 +22,5 @@ RUN ./configure \
     PETSC_ARCH_COMPLEX=arch-linux-c-complex \
     --with-localslepc \
     || tail -v config.log
+RUN make all
+RUN make -k test || :
