@@ -82,21 +82,21 @@ if __name__ == "__main__":
         if not tag_list:
             tag_list = ["latest"]
         name = f"{image_prefix}{name}"
+        nametag = f"{name}:{tag_list[0]}"
         build_args = dict(image_prefix=image_prefix)
         try:
-            image, logs = client.images.build(
-                path=str(build_context),
-                tag=f"{name}:{tag_list[0]}",
-                buildargs=build_args,
+            logs = client.api.build(
+                path=str(build_context), tag=nametag, buildargs=build_args, decode=True,
             )
             for log in logs:
                 if "stream" in log:
                     print(log["stream"], end="")
                 else:
                     print(log)
-            print(image.tags)
+            image = client.images.get(nametag)
             for tag in tag_list[1:]:
                 image.tag(tag)
+            print(image.tags)
         except docker.errors.BuildError as be:
             exit_code = None
             for log in be.build_log:
