@@ -77,7 +77,7 @@ if __name__ == "__main__":
         if not tag_list:
             tag_list = ["latest"]
         name = f"{image_prefix}{name}"
-        build_args = dict(ncpaprop_image_prefix=image_prefix)
+        build_args = dict(image_prefix=image_prefix)
         try:
             image, logs = client.images.build(
                 path=str(build_context),
