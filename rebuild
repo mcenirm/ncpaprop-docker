@@ -46,20 +46,24 @@ if __name__ == "__main__":
     parser.add_argument(
         "--image-prefix", help="Prefix for image names", default=default_image_prefix,
     )
+    parser.add_argument(
+        "contexts",
+        metavar="BUILDCONTEXT",
+        nargs="+",
+        help="context directories for images to build",
+    )
     args = parser.parse_args(argument_list)
     image_prefix = args.image_prefix
-    build_context_list = [
-        _ for _ in parent.glob(build_context_prefix_glob) if _.is_dir()
-    ]
+    build_context_list = args.contexts
 
     client = docker.from_env()
 
-    for image_dir in sorted(build_context_list):
-        image_dir_name = Path(image_dir).name
+    for build_context in build_context_list:
+        context_name = Path(build_context).name
         name = None
         tag_list = []
-        rest = image_dir_name
-        name_matches = pattern_image_name_from_build_context_name.match(image_dir_name)
+        rest = context_name
+        name_matches = pattern_image_name_from_build_context_name.match(context_name)
         if name_matches:
             name = name_matches.group("name")
             rest = name_matches.group("rest")
@@ -74,15 +78,29 @@ if __name__ == "__main__":
             tag_list = ["latest"]
         name = f"{image_prefix}{name}"
         build_args = dict(ncpaprop_image_prefix=image_prefix)
-        image, logs = client.images.build(
-            path=str(image_dir), tag=f"{name}:{tag_list[0]}", buildargs=build_args
-        )
-        for log in logs:
-            if "stream" in log:
-                print(log["stream"], end="")
-            else:
-                print(log)
-        print(image.tags)
-        for tag in tag_list[1:]:
-            image.tag(tag)
+        try:
+            image, logs = client.images.build(
+                path=str(build_context),
+                tag=f"{name}:{tag_list[0]}",
+                buildargs=build_args,
+            )
+            for log in logs:
+                if "stream" in log:
+                    print(log["stream"], end="")
+                else:
+                    print(log)
+            print(image.tags)
+            for tag in tag_list[1:]:
+                image.tag(tag)
+        except docker.errors.BuildError as be:
+            exit_code = None
+            for log in be.build_log:
+                if "stream" in log:
+                    print(log["stream"], end="")
+                else:
+                    print(log)
+                exit_code = log.get("errorDetail", {}).get("code", None)
+            print(be.msg, file=sys.stderr)
+            if exit_code:
+                sys.exit(exit_code)
     sys.exit(0)
