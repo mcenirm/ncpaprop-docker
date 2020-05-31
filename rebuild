@@ -60,6 +60,11 @@ if __name__ == "__main__":
 
     for build_context in build_context_list:
         context_name = Path(build_context).name
+        print()
+        print("==")
+        print("==", context_name)
+        print("==")
+        print()
         name = None
         tag_list = []
         rest = context_name
