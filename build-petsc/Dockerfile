@@ -20,7 +20,7 @@ RUN mv -v /code/petsc*/ /code/petsc
 COPY --chown=builder:builder build-with-scalar-type.bash /tmp/
 
 WORKDIR /code/petsc/
-RUN bash /tmp/build-with-scalar-type.bash real || :
-RUN bash /tmp/build-with-scalar-type.bash complex || :
+RUN bash /tmp/build-with-scalar-type.bash real
+RUN bash /tmp/build-with-scalar-type.bash complex
 
 RUN rm /tmp/build-with-scalar-type.bash
